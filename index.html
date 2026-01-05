@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Review Language Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+    <h1>Steam Reviews: Language Distribution</h1>
+    
+    <div id="controls">
+        <div class="control-group">
+            <label for="gameSearch">Search Game:</label>
+            <input type="text" id="gameSearch" placeholder="Type to filter...">
+        </div>
+        
+        <div class="control-group">
+            <label for="gameSelector">Select Game:</label>
+            <select id="gameSelector">
+                <option value="Global">Global (All Games)</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="dashboard">
+        <div id="chart-container"></div>
+        <div id="legend-container"></div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
