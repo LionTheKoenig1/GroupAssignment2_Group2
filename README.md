@@ -4,3 +4,6 @@ Deniz Frick
 Johannes
 Talha
 Leon Seidl 12223382
+
+#AI NOTICE
+Gemini used for code generation in all files.

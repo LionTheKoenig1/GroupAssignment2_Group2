@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Steam Review Language Analyzer</title>
     <link rel="stylesheet" href="style.css">
+    
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-cloud/build/d3.layout.cloud.js"></script>
+    
+    <script src="https://unpkg.com/stopword/dist/stopword.umd.min.js"></script>
 </head>
 <body>
 
@@ -25,9 +29,31 @@
         </div>
     </div>
 
+    <div id="sentiment-panel">
+        <div class="sentiment-labels">
+            <span class="label-neg">Negative</span>
+            <span id="sentiment-percentage">Loading...</span>
+            <span class="label-pos">Positive</span>
+        </div>
+        <div id="sentiment-bar-container">
+            <div id="bar-negative"></div>
+            <div id="bar-positive"></div>
+        </div>
+    </div>
+
     <div id="dashboard">
-        <div id="chart-container"></div>
-        <div id="legend-container"></div>
+        
+        <div class="chart-wrapper">
+            <h3>Language Split</h3>
+            <div id="chart-container"></div>
+            <div id="legend-container"></div>
+        </div>
+
+        <div class="chart-wrapper">
+            <h3>Top Words (Blue=Pos, Yellow=Neg)</h3>
+            <div id="wordcloud-container"></div>
+        </div>
+
     </div>
 
     <div id="tooltip" class="tooltip"></div>
