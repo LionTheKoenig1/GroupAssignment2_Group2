@@ -29,6 +29,10 @@ const languageNameMap = {
 // 2. CONFIGURATION & SETUP
 // ---------------------------------------------------------
 
+// --- State Management ---
+let currentGameData = []; // Stores the currently selected game's reviews
+let activeLanguage = null; // Stores currently selected language (or null for Global)
+
 // --- Pie Chart Config ---
 const width = 400, height = 400, radius = Math.min(width, height) / 2;
 const colorScale = d3.scaleOrdinal(d3.schemeSet2); 
@@ -52,7 +56,6 @@ const svgCloud = d3.select("#wordcloud-container")
     .append("g")
     .attr("transform", `translate(${wcWidth / 2}, ${wcHeight / 2})`);
 
-// Gradient: 0 (Negative) -> Yellow, 1 (Positive) -> Blue
 const sentimentColorScale = d3.scaleLinear()
     .domain([0, 0.5, 1]) 
     .range(["#f1c40f", "#95a5a6", "#66c0f4"]); 
@@ -60,48 +63,29 @@ const sentimentColorScale = d3.scaleLinear()
 const tooltip = d3.select("#tooltip");
 
 // ---------------------------------------------------------
-// STOP WORDS SETUP (Using 'stopword' library + Manual Extras)
+// STOP WORDS SETUP
 // ---------------------------------------------------------
-
-// 1. Define custom gaming-specific stop words AND manual exclusions
 const gamingStopWords = [
-    // Standard Gaming terms
     "game", "games", "play", "played", "playing", "time", "get", "up", "out", 
     "best", "fun", "story", "gameplay", "really", "much", "even", "steam", 
     "review", "buy", "recommend", "10", "100", "fps", "yes", "no", "just", 
     "like", "good", "bad", "lot", "man", "make", "made", "can", "will", "your",
-    
-    // User Manual Exclusions (Contractions & noise)
     "not", "its", "it's", "don't", "can't", "won't", "didn't", "im", "i'm", 
     "ive", "i've", "that's", "thats", "theres", "there's", "cant", "dont"
 ];
 
-// 2. Combine libraries from the 'sw' global object
 let combinedStopWords = [];
 
 if (typeof sw !== 'undefined') {
     combinedStopWords = [
-        ...(sw.eng || []), 
-        ...(sw.rus || []), 
-        ...(sw.spa || []), 
-        ...(sw.deu || []), 
-        ...(sw.fra || []), 
-        ...(sw.zho || []), 
-        ...(sw.por || []), 
-        ...(sw.jpn || []), 
-        ...(sw.kor || []), 
-        ...(sw.ita || []), 
-        ...(sw.pol || []), 
-        ...(sw.tur || []), 
-        ...(sw.tha || []), 
-        ...gamingStopWords
+        ...(sw.eng || []), ...(sw.rus || []), ...(sw.spa || []), ...(sw.deu || []), 
+        ...(sw.fra || []), ...(sw.zho || []), ...(sw.por || []), ...(sw.jpn || []), 
+        ...(sw.kor || []), ...(sw.ita || []), ...(sw.pol || []), ...(sw.tur || []), 
+        ...(sw.tha || []), ...gamingStopWords
     ];
 } else {
-    console.error("Stopword library not loaded. Using fallback.");
     combinedStopWords = gamingStopWords;
 }
-
-// 3. Create the Set for fast O(1) lookups
 const stopWords = new Set(combinedStopWords);
 
 // ---------------------------------------------------------
@@ -112,6 +96,7 @@ function init(rawData) {
     const allGames = Array.from(new Set(rawData.map(d => d.app_name))).sort();
     const selector = d3.select("#gameSelector");
     const searchInput = d3.select("#gameSearch");
+    const resetBtn = d3.select("#reset-language-btn");
 
     function populateDropdown(filterText = "") {
         selector.html("");
@@ -121,28 +106,69 @@ function init(rawData) {
     }
     populateDropdown();
 
+    // Event: Search
     searchInput.on("input", function() {
         populateDropdown(this.value);
         updateDashboard(rawData, "Global");
     });
 
+    // Event: Game Selection
     selector.on("change", function() {
         const selectedGame = d3.select(this).property("value");
         updateDashboard(rawData, selectedGame);
     });
 
+    // Event: Reset Language Button
+    resetBtn.on("click", function() {
+        handleLanguageSelection(null); // Null means reset to all
+    });
+
+    // Initial Load
     updateDashboard(rawData, "Global");
 }
 
 function updateDashboard(rawData, selectedGame) {
-    let filteredData = rawData;
+    // 1. Filter Data by Game
     if (selectedGame !== "Global") {
-        filteredData = rawData.filter(d => d.app_name === selectedGame);
+        currentGameData = rawData.filter(d => d.app_name === selectedGame);
+    } else {
+        currentGameData = rawData;
     }
 
-    updateSentimentBar(filteredData);
-    updatePieChart(filteredData);
-    updateWordCloud(filteredData);
+    // 2. Reset Language Selection on new game load
+    activeLanguage = null;
+    d3.select("#reset-language-btn").style("display", "none");
+
+    // 3. Update Components
+    updateSentimentBar(currentGameData);
+    updatePieChart(currentGameData);
+    
+    // Initially update word cloud with ALL data for this game
+    updateWordCloud(currentGameData);
+}
+
+// Helper to filter Word Cloud based on Pie/Legend selection
+function handleLanguageSelection(language) {
+    activeLanguage = language;
+    
+    // 1. Visuals: Show/Hide Reset Button
+    d3.select("#reset-language-btn").style("display", language ? "block" : "none");
+
+    // 2. Visuals: Dim/Undim Pie Slices and Legend Items
+    svgPie.selectAll("path")
+        .classed("dimmed", d => language && d.data.language !== language);
+    
+    d3.select("#legend-container").selectAll(".legend-item")
+        .classed("dimmed", d => language && d.language !== language);
+
+    // 3. Data: Filter for Word Cloud
+    let wordCloudData = currentGameData;
+    if (language) {
+        wordCloudData = currentGameData.filter(d => d.language === language);
+    }
+
+    // 4. Update Word Cloud
+    updateWordCloud(wordCloudData);
 }
 
 // ---------------------------------------------------------
@@ -161,8 +187,7 @@ function updateSentimentBar(data) {
     d3.select("#bar-negative").style("width", `${negPct}%`);
     d3.select("#bar-positive").style("width", `${posPct}%`);
 
-    d3.select("#sentiment-percentage")
-      .text(`${posPct.toFixed(1)}% Positive Review Ratio`);
+    d3.select("#sentiment-percentage").text(`${posPct.toFixed(1)}% Positive Review Ratio`);
 }
 
 // ---------------------------------------------------------
@@ -180,12 +205,24 @@ function updatePieChart(data) {
     path.enter().append("path")
         .attr("fill", d => colorScale(d.data.language))
         .attr("stroke", "#1b2838")
+        .style("cursor", "pointer") // Make it look clickable
         .each(function(d) { this._current = d; })
         .merge(path)
+        .attr("class", "") // Reset classes on redraw
+        .on("click", function(event, d) {
+            // Toggle logic: If clicking the active one, unselect it.
+            if (activeLanguage === d.data.language) {
+                handleLanguageSelection(null);
+            } else {
+                handleLanguageSelection(d.data.language);
+            }
+            event.stopPropagation();
+        })
         .on("mouseover", function(event, d) {
+            if (d3.select(this).classed("dimmed")) return; // Don't highlight dimmed slices
             d3.select(this).attr("opacity", 0.8);
             tooltip.style("opacity", 1)
-                .html(`<strong>${languageNameMap[d.data.language] ?? d.data.language}</strong><br/>${d.data.percentage.toFixed(2)}%`);
+                .html(`<strong>${languageNameMap[d.data.language] ?? d.data.language}</strong><br/>${d.data.percentage.toFixed(2)}%<br/><span style="font-size:11px; color:#66c0f4">(Click to filter Word Cloud)</span>`);
         })
         .on("mousemove", event => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 15) + "px"))
         .on("mouseout", function() {
@@ -211,8 +248,23 @@ function updateLegend(data) {
     enter.append("div").attr("class", "legend-color");
     enter.append("span").attr("class", "legend-text");
 
-    enter.merge(items).select(".legend-color").style("background-color", d => colorScale(d.language));
-    enter.merge(items).select(".legend-text").text(d => `${languageNameMap[d.language] ?? d.language}: ${d.percentage.toFixed(2)}%`);
+    const merged = enter.merge(items);
+    
+    merged.select(".legend-color").style("background-color", d => colorScale(d.language));
+    merged.select(".legend-text").text(d => `${languageNameMap[d.language] ?? d.language}: ${d.percentage.toFixed(2)}%`);
+    
+    // Add Click Interaction
+    merged.on("click", function(event, d) {
+        if (activeLanguage === d.language) {
+            handleLanguageSelection(null);
+        } else {
+            handleLanguageSelection(d.language);
+        }
+    });
+
+    // Reset classes
+    merged.classed("dimmed", false);
+
     items.exit().remove();
 }
 
@@ -221,6 +273,7 @@ function updateLegend(data) {
 // ---------------------------------------------------------
 function updateWordCloud(data) {
     const wordMap = new Map();
+    console.log(`[WordCloud Debug] Processing ${data.length} rows.`);
 
     const dataToProcess = data; 
     const segmenter = new Intl.Segmenter([], { granularity: 'word' });
@@ -235,9 +288,7 @@ function updateWordCloud(data) {
         for (const segment of segments) {
             const w = segment.segment;
 
-            // Check if word exists in our expanded 'stopWords' Set
             if (segment.isWordLike && !stopWords.has(w)) {
-                
                 const isCJK = /[\u4e00-\u9fff]/.test(w);
                 if (!isCJK && w.length < 3) continue; 
 
@@ -275,13 +326,9 @@ function updateWordCloud(data) {
     layout.start();
 
     function drawCloud(words) {
-        const texts = svgCloud.selectAll("text")
-            .data(words, d => d.text);
+        const texts = svgCloud.selectAll("text").data(words, d => d.text);
 
-        texts.exit()
-            .transition().duration(500)
-            .style("opacity", 0)
-            .remove();
+        texts.exit().transition().duration(500).style("opacity", 0).remove();
 
         texts.enter().append("text")
             .style("font-family", "Impact, sans-serif")
@@ -293,9 +340,7 @@ function updateWordCloud(data) {
                 const sentPct = (d.sentiment * 100).toFixed(1);
                 d3.select(this).style("opacity", 0.7);
                 tooltip.style("opacity", 1)
-                       .html(`<strong>${d.text}</strong><br/>
-                              Freq: ${d.frequency}<br/>
-                              <span style="color:${sentimentColorScale(d.sentiment)}">${sentPct}% Positive</span>`);
+                       .html(`<strong>${d.text}</strong><br/>Freq: ${d.frequency}<br/><span style="color:${sentimentColorScale(d.sentiment)}">${sentPct}% Positive</span>`);
             })
             .on("mousemove", event => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 15) + "px"))
             .on("mouseout", function() {

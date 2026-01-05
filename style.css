@@ -45,10 +45,10 @@ input[type="text"], select {
     outline: none;
 }
 
-/* --- NEW: SENTIMENT BAR --- */
+/* --- SENTIMENT BAR --- */
 #sentiment-panel {
     width: 100%;
-    max-width: 800px; /* Match charts width roughly */
+    max-width: 800px; 
     margin-bottom: 30px;
 }
 
@@ -76,19 +76,19 @@ input[type="text"], select {
 
 #bar-negative {
     height: 100%;
-    background-color: #f1c40f; /* Yellow */
-    width: 50%; /* Default, updated by JS */
+    background-color: #f1c40f; 
+    width: 50%; 
     transition: width 0.8s ease-in-out;
 }
 
 #bar-positive {
     height: 100%;
-    background-color: #66c0f4; /* Blue */
-    width: 50%; /* Default, updated by JS */
+    background-color: #66c0f4; 
+    width: 50%; 
     transition: width 0.8s ease-in-out;
 }
 
-/* Dashboard Layout */
+/* --- DASHBOARD --- */
 #dashboard {
     display: flex;
     flex-wrap: wrap;
@@ -106,8 +106,10 @@ input[type="text"], select {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    position: relative; /* For reset button positioning context */
 }
 
+/* Charts */
 #chart-container, #wordcloud-container {
     width: 400px;
     height: 400px;
@@ -116,6 +118,7 @@ input[type="text"], select {
     justify-content: center;
 }
 
+/* Legend */
 #legend-container {
     margin-top: 15px;
     display: flex;
@@ -125,14 +128,45 @@ input[type="text"], select {
     width: 100%;
 }
 
+/* Interactivity Classes */
 .legend-item {
     display: flex;
     align-items: center;
     margin-bottom: 5px;
     font-size: 13px;
+    cursor: pointer; /* Clickable */
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s, opacity 0.3s;
 }
+
+.legend-item:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
 .legend-color {
     width: 12px; height: 12px; margin-right: 8px; border-radius: 2px;
+}
+
+/* Dimmed state for unselected items */
+.dimmed {
+    opacity: 0.2; 
+}
+
+/* Reset Button */
+#reset-language-btn {
+    background-color: #66c0f4;
+    color: #1b2838;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+#reset-language-btn:hover {
+    background-color: #ffffff;
 }
 
 .tooltip {
