@@ -56,6 +56,17 @@ const svgCloud = d3.select("#wordcloud-container")
     .append("g")
     .attr("transform", `translate(${wcWidth / 2}, ${wcHeight / 2})`);
 
+// --- Word Cloud Config ---
+const histMargin = {top: 20, right: 20, bottom: 30, left: 40},
+    histWidth = 400 - histMargin.left - histMargin.right,
+    histHeight = 400 - histMargin.top - histMargin.bottom;
+const svgHist = d3.select("#histogram-container")
+    .append("svg")
+    .attr("width", 400)
+    .attr("height", 400)
+    .append("g")
+    .attr("transform", `translate(${histMargin.left}, ${histMargin.top})`);
+
 const sentimentColorScale = d3.scaleLinear()
     .domain([0, 0.5, 1]) 
     .range(["#f1c40f", "#95a5a6", "#66c0f4"]); 
@@ -145,6 +156,7 @@ function updateDashboard(rawData, selectedGame) {
     
     // Initially update word cloud with ALL data for this game
     updateWordCloud(currentGameData);
+    updateHistogram(currentGameData);
 }
 
 // Helper to filter Word Cloud based on Pie/Legend selection
@@ -169,6 +181,7 @@ function handleLanguageSelection(language) {
 
     // 4. Update Word Cloud
     updateWordCloud(wordCloudData);
+    updateHistogram(wordCloudData);
 }
 
 // ---------------------------------------------------------
@@ -353,4 +366,76 @@ function updateWordCloud(data) {
             .attr("transform", d => `translate(${d.x}, ${d.y})rotate(${d.rotate})scale(1)`)
             .style("font-size", d => d.size + "px");
     }
+}
+
+// ---------------------------------------------------------
+// HISTOGRAM LOGIC
+// ---------------------------------------------------------
+function updateHistogram(data) {
+
+    const counts = Array.from(d3.rollup(data, 
+        v => d3.rollup(v, count => count.length, d => d.recommended), 
+        d => d3.timeDay.floor(d.timestamp_updated) // Bin by day
+    ));
+
+    // Transform into "wide" format for d3.stack
+    // Result format: [{ date, true: countT, false: countF, total: countT+countF }, ...]
+    const wideData = counts.map(([date, recommendedMap]) => {
+        const trueCount = recommendedMap.get(true) || 0;
+        const falseCount = recommendedMap.get(false) || 0;
+        return {
+            date: date,
+            true: trueCount,
+            false: falseCount,
+            total: trueCount + falseCount
+        };
+    }).sort((a, b) => a.date - b.date);
+
+    // Define keys for the stack (the boolean categories)
+    const keys = ['true', 'false'];
+
+    // d3.stack generator
+    const stack = d3.stack()
+        .keys(keys)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+    // Generate stacked data layers
+    stackedData = stack(wideData);
+
+    const xScale = d3.scaleBand()
+        .domain(stackedData[0].map(d => d.data.date))
+        .range([0, histWidth])
+        .padding(0.2);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(stackedData[stackedData.length - 1], d => d[1])]) // Max y value from top of stacks
+        .range([histHeight, 0]);
+
+    const xAxis = d3.axisBottom(xScale).tickFormat(d3.timeFormat("%b %d"));
+    const yAxis = d3.axisLeft(yScale);
+
+    svgHist.selectAll("*").remove();
+    const layer = svgHist.selectAll(".layer")
+    .data(stackedData)
+    .enter().append("g")
+        .attr("class", "layer")
+        .attr("fill", d => sentimentColorScale(d.key == "true" ? 1 : 0));
+
+    layer.selectAll("rect")
+    .data(d => d)
+    .enter().append("rect")
+        .attr("x", d => xScale(d.data.date))
+        .attr("y", d => yScale(d[1]))
+        .attr("height", d => yScale(d[0]) - yScale(d[1]))
+        .attr("width", xScale.bandwidth());
+
+    svgHist.append("g")
+        .attr("class", "axis x-axis")
+        .attr("transform", `translate(0,${histHeight})`)
+        .call(xAxis);
+
+    svgHist.append("g")
+        .attr("class", "axis y-axis")
+        .call(yAxis);
 }
