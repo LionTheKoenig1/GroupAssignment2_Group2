@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Adjacency Matrix Heatmap</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: "Atkinson Hyperlegible", sans-serif;
+            margin: 0;
+        }
+        #matrix {
+            height: min(90svh, 90svw);
+            width: min(90svh, 90svw);
+            border: 1px solid gray;
+            border-radius: 2px;
+        }
+        h4 {
+            margin-bottom: -1em;
+        }
+
+        #container {
+            padding: 10px;
+            display: flex;
+            flex-direction: row-reverse;
+            flex-wrap: wrap;
+            justify-content: space-evenly;
+            align-items: center;
+            height: 100svh;
+        }
+        #explanation {
+            overflow: scroll;
+        }
+        
+        .cell {
+            border: lightgray;
+            border-width: 1px;
+
+        }
+        .cell:hover {
+            stroke: black;
+            stroke-width: 3px;
+        }
+
+        .x-label,.y-label {
+            font-size: 12px;
+            font-family: "Atkinson Hyperlegible", sans-serif;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="explanation">
+            <h1>Game Review Visualization</h3>
+            <p>Group 2</p>
+            <hr>
+            <p>This adjacency map / heatmap presents is created from <br>
+                the review data of the game with the Steam App ID <span id="app_id"></span>.</p>
+            <p>The darker the cell, the more does this word combination <br>
+                 appeard in <span style="color: blue;">positive reviews</span> or <span style="color: red;">negative reviews</span></p>
+            
+            <h4>Interactivity:</h5>
+            <p>The matrix can be zoomed and dragged with a mouse or with a touchscreen. <br>
+            The labels on the top and left scale and move along with the cells.</p>
+            <p>Hovering over a cell shows a tooltip.</p>            
+        </div>
+        <div id="matrix"></div>
+    </div>
+    
+    <div class="tooltip" style="opacity: 0;"></div>
+
+    <script>
+        // Get urlparams
+        params = new URLSearchParams(window.location.search)
+        app_id = params.get("app_id")
+        document.getElementById("app_id").textContent = app_id
+
+        // Load vocabulary and adjacency matrix
+        Promise.all([
+            d3.json(`heatmap/vocab/${app_id}.json`),
+            d3.json(`heatmap/adj_matrix/${app_id}.json`)
+        ]).then(function([vocab, adjMatrix]) {
+            const labelSpace = 500
+            console.log(vocab)
+            // Create a heatmap
+            const cellSize = 20;
+            const width = vocab.length * cellSize;
+            const height = vocab.length * cellSize;
+
+            const svg = d3.select("#matrix")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("heigth", "100%")
+                .attr("viewBox", [-labelSpace, -labelSpace, width+labelSpace, height+labelSpace])
+
+            var clip = svg.append("defs").append("svg:clipPath")
+                .attr("id", "clip")
+                .append("svg:rect")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("x", 0)
+                .attr("y", 0);
+
+            //const g = svg.append("g")
+            const zoomClip = svg.append("g").attr("class", "clip")
+                .attr("clip-path", "url(#clip)")
+            const zoomLayer = zoomClip.append("g")
+                .attr("class", "zoom-layer")
+                .attr("fill", "black")
+            const xAxisLabels = svg.append("g").attr("class", "x-axis-labels");
+            const yAxisLabels = svg.append("g").attr("class", "y-axis-labels");
+
+            // Calculate max for top triangle (positive reviews)
+            const maxTop = d3.max(
+                adjMatrix.flatMap((row, i) =>
+                    row.slice(i).map(val => val)  // Slice from i to end (top triangle)
+                )
+            );
+
+            // Calculate max for bottom triangle (negative reviews)
+            const maxBottom = d3.max(
+                adjMatrix.flatMap((row, i) =>
+                    row.slice(0, i).map(val => val)  // Slice from start to i (bottom triangle)
+                )
+            );
+
+            // Create color scale for top triangle (blue)
+            const colorScaleTop = d3.scaleLog()
+                .domain([0, 40, maxTop])
+                .range(["#fff", "#fff", "blue"])
+                .clamp(true);
+
+            // Create color scale for bottom triangle (red)
+            const colorScaleBottom = d3.scaleLog()
+                .domain([0, 40, maxBottom])
+                .range(["#fff", "#fff", "red"])
+                .clamp(true);
+            
+            const tooltip = d3.select(".tooltip");
+
+            // Draw cells
+            for (let i = 0; i < adjMatrix.length; i++) {
+                for (let j = 0; j < adjMatrix[i].length; j++) {
+                    let color
+                    let opacity = Math.min(adjMatrix[i][j]*2, 100.0)/100.0
+                    if (i == j) {
+                        color = "lightgray"
+                        opacity = 1
+                    } else if(i < j){
+                        color = colorScaleTop(adjMatrix[i][j])
+                    } else {
+                        color = colorScaleBottom(adjMatrix[i][j])
+                    }
+
+                    zoomLayer.append("rect")
+                        .attr("class", "cell")
+                        .attr("x", j * cellSize +1)
+                        .attr("y", i * cellSize +1)
+                        .attr("width", cellSize -2)
+                        .attr("height", cellSize -2)
+                        .attr("rx", 2)
+                        .attr("ry", 2)
+                        .attr("fill-opacity", opacity)
+                        .style("fill", color)
+                        .on("mousemove", function(event) {
+                            tooltip
+                                .style("opacity", 1)
+                                .html(`${vocab[i]} & ${vocab[j]}: ${adjMatrix[i][j]}`)
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 28) + "px");
+                        })
+                        .on("mouseout", function() {
+                            tooltip.style("opacity", 0);
+                        });
+                }
+            }
+
+            // Add x-axis labels (vocabulary)
+            const x = xAxisLabels.selectAll(".x-label")
+                .data(vocab)
+                .enter()
+                .append("text")
+                .attr("class", "x-label")
+                .attr("y", (d, i) => i * cellSize + cellSize/2)
+                .attr("x", 5)
+                .text(d => d)
+                .style("text-anchor", "start")
+                .style("rotate", "-90deg");
+
+            // Add y-axis labels (vocabulary)
+            const y = yAxisLabels.selectAll(".y-label")
+                .data(vocab)
+                .enter()
+                .append("text")
+                .attr("class", "y-label")
+                .attr("x", -5)
+                .attr("y", (d, i) => i * cellSize + cellSize / 2 + 5)
+                .text(d => d)
+                .style("text-anchor", "end");
+
+            var mask = svg.append("svg:rect")
+                .attr("width", labelSpace)
+                .attr("height", labelSpace)
+                .attr("x", -labelSpace)
+                .attr("y", -labelSpace)
+                .attr("fill", "white")
+                
+
+            function zoomed({transform}) {
+                //g.attr("transform", transform);
+                zoomLayer.attr("transform", transform);
+                // Only scale x-axis labels horizontally
+                xAxisLabels.attr("transform", `translate(${transform.x},1) scale(${transform.k})`);
+                // Only scale y-axis labels vertically
+                yAxisLabels.attr("transform", `translate(1,${transform.y}) scale(${transform.k})`);
+            }
+            svg.call(d3.zoom()
+                .extent([[0, 0], [width, height]])
+                .scaleExtent([1, 8])
+                .translateExtent([[0, 0], [width, height]])
+                .wheelDelta(function(event) {
+                    return -event.deltaY * 0.005;  // Adjust this value to control zoom speed
+                })
+                .on("zoom", zoomed));
+        });
+    </script>
+</body>
+</html>
