@@ -515,13 +515,14 @@ function updateScatterplot(data) {
     // 2. Advanced Filtering & Capping
     // We prioritize reviews with votes, then sample those without.
     let withVotes = data.filter(d => +d.weighted_vote_score > 0 && d["author.playtime_at_review"] != null);
-    let noVotes = data.filter(d => +d.weighted_vote_score === 0 && d["author.playtime_at_review"] != null);
+    // let noVotes = data.filter(d => +d.weighted_vote_score === 0 && d["author.playtime_at_review"] != null);
 
     // Sample the no-votes even more aggressively for the Global view
-    let sampledNoVotes = noVotes.filter((d, i) => i % 15 === 0);
+    // let sampledNoVotes = noVotes.filter((d, i) => i % 15 === 0);
 
     // Combine and Hard Cap at 2,000 dots to prevent browser lag
-    let plotData = [...withVotes, ...sampledNoVotes].slice(0, 2000);
+    // let plotData = [...withVotes, ...sampledNoVotes].slice(0, 2000);
+    let plotData = withVotes
 
     // 3. Scales (Standard)
     const xScale = d3.scaleLog()
