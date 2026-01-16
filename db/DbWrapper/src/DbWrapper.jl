@@ -50,6 +50,6 @@ const CONN_STR = "host=localhost user=readonly_user password=Blush-Imposing-Glad
 end
 
 # Start the server on port 8080
-serve(port=8080)
+serve(port=8080, host="0.0.0.0")
 
 end # module DbWrapper
