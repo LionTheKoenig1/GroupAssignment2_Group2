@@ -599,11 +599,38 @@ function updateScatterplot(data) {
 // ---------------------------------------------------------
 
 function updateHeatmap(app_id) {
-    const container = d3.select("#matrix");
+    const containerWrapper = d3.select("#heatmap-container");
+    const matrixContainer = d3.select("#matrix");
+    const samplesContainer = d3.select("#samples");
     const msgDiv = d3.select("#heatmap-msg");
     
-    // Clear previous heatmap
-    container.selectAll("*").remove();
+    // Clear previous content
+    matrixContainer.selectAll("*").remove();
+    samplesContainer.html(""); 
+
+    // Layout Styling: Ensure Heatmap and Samples sit side-by-side
+    containerWrapper
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("gap", "20px")
+        .style("height", "500px"); // Fixed height for scrolling
+
+    matrixContainer
+        .style("flex", "1")
+        .style("overflow", "hidden"); // Important for zoom
+
+    samplesContainer
+        .style("flex", "1")
+        .style("overflow-y", "auto")
+        .style("padding", "10px")
+        .style("border", "1px solid #333")
+        .style("background", "#1b2838") // Steam dark blue background
+        .style("color", "#c6d4df");     // Steam light text
+
+    // Set Initial Placeholder Text
+    samplesContainer.html(`<div style="color: gray; font-style: italic; margin-top: 20px; text-align: center;">
+        Click a cell in the heatmap to view example reviews containing both words.
+    </div>`);
 
     // Handle Global Case or Missing ID
     if (!app_id) {
@@ -611,7 +638,7 @@ function updateHeatmap(app_id) {
         return;
     }
 
-    msgDiv.text("Scroll to zoom, Drag to pan. Hover for details.");
+    msgDiv.text("Scroll to zoom, Drag to pan. Click a colored cell to see context.");
 
     // Paths to data
     const vocabPath = `heatmap/vocab/${app_id}.json`;
@@ -626,10 +653,10 @@ function updateHeatmap(app_id) {
         const cellSize = 20;
         const heatmapWidth = vocab.length * cellSize;
         const heatmapHeight = vocab.length * cellSize;
-        const labelSpace = 500; // Space for labels within the SVG coordinate system
+        const labelSpace = 500; 
 
         // --- Setup SVG ---
-        const svg = container.append("svg")
+        const svg = matrixContainer.append("svg")
             .attr("width", "100%")
             .attr("height", "100%")
             .attr("viewBox", [-labelSpace, -labelSpace, heatmapWidth + labelSpace, heatmapHeight + labelSpace])
@@ -643,12 +670,11 @@ function updateHeatmap(app_id) {
                 .attr("x", 0)
                 .attr("y", 0);
 
-        //const g = svg.append("g")
         const zoomClip = svg.append("g").attr("class", "clip")
-            .attr("clip-path", "url(#clip)")
+            .attr("clip-path", "url(#clip)");
         const zoomLayer = zoomClip.append("g")
             .attr("class", "zoom-layer")
-            .attr("fill", "black")
+            .attr("fill", "black");
 
         const xAxisLabels = svg.append("g").attr("class", "x-axis-labels");
         const yAxisLabels = svg.append("g").attr("class", "y-axis-labels");
@@ -670,16 +696,16 @@ function updateHeatmap(app_id) {
         ) || 1;
 
         // Create color scale for top triangle (blue)
-            const colorScaleTop = d3.scaleLog()
-                .domain([1, 40, maxTop])
-                .range(["#101822", "#101822", "blue"])
-                .clamp(true);
+        const colorScaleTop = d3.scaleLog()
+            .domain([1, 40, maxTop])
+            .range(["#101822", "#101822", "blue"])
+            .clamp(true);
 
             // Create color scale for bottom triangle (yellow)
-            const colorScaleBottom = d3.scaleLog()
-                .domain([1, 40, maxBottom])
-                .range(["#101822", "#101822", "#f1c40f"])
-                .clamp(true);
+        const colorScaleBottom = d3.scaleLog()
+            .domain([1, 40, maxBottom])
+            .range(["#101822", "#101822", "#f1c40f"])
+            .clamp(true);
 
         // --- Draw Cells ---
         for (let i = 0; i < adjMatrix.length; i++) {
@@ -734,7 +760,65 @@ function updateHeatmap(app_id) {
                     .on("mouseout", function() {
                         d3.select(this).style("stroke", "none");
                         tooltip.style("opacity", 0);
+                    })
+                    // --- CLICK HANDLER START ---
+                    .on("click", function(event) {
+                        console.log("CLICK")
+                        // Ignore diagonal clicks
+                        if (i === j) return;
+
+                        const w1 = vocab[i];
+                        const w2 = vocab[j];
+                        const rec = i < j; // true = blue/positive, false = red/negative
+
+                        // Show loading state
+                        samplesContainer.html(`<div style="text-align:center; margin-top:20px; color: #66c0f4;">Loading examples for <strong>${w1}</strong> + <strong>${w2}</strong>...</div>`);
+
+                        const url = `http://tpio95lsopytht8o.myfritz.net:63782/search?app_id=${app_id}&w1=${w1}&w2=${w2}&rec=${rec}`;
+
+                        fetch(url)
+                            .then(response => response.json())
+                            .then(data => {
+                                samplesContainer.html(""); // Clear loading
+                                
+                                if (!data || data.length === 0) {
+                                    samplesContainer.html(`<div style="padding:10px;">No specific review examples found.</div>`);
+                                    return;
+                                }
+
+                                samplesContainer.append("h4")
+                                    .style("margin", "0 0 10px 0")
+                                    .style("color", rec ? "#66c0f4" : "#f1c40f")
+                                    .text(`${rec ? "Recommended" : "Not Recommended"} Reviews: "${w1}" & "${w2}"`);
+
+                                data.forEach(item => {
+                                    // Highlight words using Regex (Case insensitive)
+                                    // We wrap found words in a span with a highlight style
+                                    let reviewText = decodeEscapedString(item.review);
+                                    const regex = new RegExp(`\\b(${w1}|${w2})\\b`, 'gi');
+                                    
+                                    // Replace using a callback to preserve original casing in display
+                                    const highlightedText = reviewText.replace(regex, (match) => {
+                                        return `<span style="background-color: ${rec ? '#2a475e' : '#634b07'}; color: white; font-weight: bold; padding: 0 2px; border-radius: 2px;">${match}</span>`;
+                                    });
+
+                                    samplesContainer.append("div")
+                                        .style("margin-bottom", "15px")
+                                        .style("padding", "10px")
+                                        .style("background", "rgba(0,0,0,0.2)")
+                                        .style("border-radius", "4px")
+                                        .style("font-size", "0.9em")
+                                        .style("line-height", "1.4")
+                                        .style("overflow-x", "clip")
+                                        .html(highlightedText);
+                                });
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                samplesContainer.html(`<div style="color: red; padding: 10px;">Error loading reviews. Ensure the backend is running.</div>`);
+                            });
                     });
+                    // --- CLICK HANDLER END ---
             }
         }
 
@@ -797,6 +881,7 @@ function updateHeatmap(app_id) {
     }).catch(function(error) {
         console.error("Heatmap data not found or error loading:", error);
         msgDiv.text("No adjacency data available for this game.");
-        container.selectAll("*").remove();
+        matrixContainer.selectAll("*").remove();
+        samplesContainer.html("");
     });
 }

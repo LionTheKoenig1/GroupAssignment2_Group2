@@ -141,7 +141,7 @@ option:hover {
 }
 
 #heatmap-wrapper {
-    width: 1400px;
+    width: 1500px;
     height: 800px;
 }
 #heatmap-container {
@@ -153,15 +153,19 @@ option:hover {
     align-items: center;
 }
 #matrix {
-    width: 600px;
-    height: 600px;
+    width: 550px !important;
+    min-width: 550px;
+    height: 550px;
 }
-#explanation {
+#samples {
+    width: 490px;
+    height: 700px;
     overflow: scroll;
 }
 .cell {
     border: lightgray;
     border-width: 1px;
+    cursor: pointer;
 
 }
 .x-label, .y-label {
