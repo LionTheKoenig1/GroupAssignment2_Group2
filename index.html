@@ -17,14 +17,16 @@
     <div id="controls">
         <div class="control-group">
             <label for="gameSearch">Search Game:</label>
-            <input type="text" id="gameSearch" placeholder="Type to filter...">
+            <input type="text" id="gameSearch" placeholder="Type to filter..." autocomplete="off">
         </div>
         
         <div class="control-group">
             <label for="gameSelector">Select Game:</label>
-            <select id="gameSelector">
-                <option value="Global">Global (All Games)</option>
-            </select>
+            <div class="select-wrapper">
+                <select id="gameSelector">
+                    <option value="Global">Global (All Games)</option>
+                </select>
+            </div>
         </div>
     </div>
 

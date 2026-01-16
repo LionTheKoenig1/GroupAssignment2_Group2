@@ -8,6 +8,8 @@ d3.csv("steam_reviews_small.csv").then(function(data) {
     // Convert types
     data.forEach(d => {
         d.recommended = (d.recommended === "True" || d.recommended === "true");
+        d.timestamp_created = new Date(d.timestamp_created * 1000); 
+        d.timestamp_updated = new Date(d.timestamp_updated * 1000); 
     });
 
     init(data);
@@ -30,8 +32,8 @@ const languageNameMap = {
 // ---------------------------------------------------------
 
 // --- State Management ---
-let currentGameData = []; // Stores the currently selected game's reviews
-let activeLanguage = null; // Stores currently selected language (or null for Global)
+let currentGameData = []; 
+let activeLanguage = null; 
 
 // --- Pie Chart Config ---
 const width = 400, height = 400, radius = Math.min(width, height) / 2;
@@ -56,10 +58,11 @@ const svgCloud = d3.select("#wordcloud-container")
     .append("g")
     .attr("transform", `translate(${wcWidth / 2}, ${wcHeight / 2})`);
 
-// --- Word Cloud Config ---
+// --- Histogram Config ---
 const histMargin = {top: 20, right: 20, bottom: 30, left: 40},
     histWidth = 400 - histMargin.left - histMargin.right,
     histHeight = 400 - histMargin.top - histMargin.bottom;
+
 const svgHist = d3.select("#histogram-container")
     .append("svg")
     .attr("width", 400)
@@ -110,78 +113,121 @@ function init(rawData) {
     const resetBtn = d3.select("#reset-language-btn");
 
     function populateDropdown(filterText = "") {
+        const currentVal = selector.property("value");
         selector.html("");
+        
         selector.append("option").text("Global (All Games)").attr("value", "Global");
-        const filteredGames = allGames.filter(g => g.toLowerCase().startsWith(filterText.toLowerCase()));
-        filteredGames.forEach(g => selector.append("option").text(g).attr("value", g));
+        
+        const filteredGames = allGames.filter(g => g.toLowerCase().includes(filterText.toLowerCase()));
+        
+        filteredGames.forEach(g => {
+            selector.append("option").text(g).attr("value", g);
+        });
+
+        if (currentVal && (currentVal === "Global" || filteredGames.includes(currentVal))) {
+            selector.property("value", currentVal);
+        }
     }
     populateDropdown();
 
-    // Event: Search
+    // --- EVENT LISTENERS (FIXED) ---
+
+    // 1. Search Input: Filter list & Expand dropdown
     searchInput.on("input", function() {
-        populateDropdown(this.value);
-        updateDashboard(rawData, "Global");
+        const text = this.value;
+        populateDropdown(text);
+
+        if (text.length > 0) {
+            // Use CSS class for expansion to avoid layout shift
+            selector.classed("expanded", true)
+                    .attr("size", 6); // Show 6 items
+        } else {
+            selector.classed("expanded", false)
+                    .attr("size", null);
+        }
     });
 
-    // Event: Game Selection
+    searchInput.on("focus", function() {
+        if(this.value.length > 0) {
+            selector.classed("expanded", true)
+                    .attr("size", 6);
+        }
+    });
+
+    // 2. Game Selection
     selector.on("change", function() {
         const selectedGame = d3.select(this).property("value");
+        
+        if (selectedGame !== "Global") {
+            searchInput.property("value", selectedGame);
+        } else {
+            searchInput.property("value", "");
+        }
+
+        // Collapse
+        selector.classed("expanded", false)
+                .attr("size", null);
+
         updateDashboard(rawData, selectedGame);
     });
-
-    // Event: Reset Language Button
-    resetBtn.on("click", function() {
-        handleLanguageSelection(null); // Null means reset to all
+    
+    // Also handle 'click' on options for immediate close (UX improvement)
+    selector.on("click", function() {
+        // If it was expanded and user clicked, check if value changed or just close it
+        if (selector.classed("expanded")) {
+            selector.classed("expanded", false).attr("size", null);
+        }
     });
 
-    // Initial Load
+    // 3. Click outside to collapse
+    d3.select("body").on("click", function(event) {
+        const target = event.target;
+        if (target.id !== "gameSelector" && target.id !== "gameSearch") {
+            selector.classed("expanded", false).attr("size", null);
+        }
+    });
+
+    resetBtn.on("click", function() {
+        handleLanguageSelection(null); 
+    });
+
     updateDashboard(rawData, "Global");
 }
 
 function updateDashboard(rawData, selectedGame) {
-    // 1. Filter Data by Game
     if (selectedGame !== "Global") {
         currentGameData = rawData.filter(d => d.app_name === selectedGame);
     } else {
         currentGameData = rawData;
     }
 
-    // 2. Reset Language Selection on new game load
     activeLanguage = null;
     d3.select("#reset-language-btn").style("display", "none");
 
-    // 3. Update Components
     updateSentimentBar(currentGameData);
     updatePieChart(currentGameData);
-    
-    // Initially update word cloud with ALL data for this game
     updateWordCloud(currentGameData);
     updateHistogram(currentGameData);
 }
 
-// Helper to filter Word Cloud based on Pie/Legend selection
 function handleLanguageSelection(language) {
     activeLanguage = language;
     
-    // 1. Visuals: Show/Hide Reset Button
     d3.select("#reset-language-btn").style("display", language ? "block" : "none");
 
-    // 2. Visuals: Dim/Undim Pie Slices and Legend Items
     svgPie.selectAll("path")
         .classed("dimmed", d => language && d.data.language !== language);
     
     d3.select("#legend-container").selectAll(".legend-item")
         .classed("dimmed", d => language && d.language !== language);
 
-    // 3. Data: Filter for Word Cloud
-    let wordCloudData = currentGameData;
+    let filteredData = currentGameData;
     if (language) {
-        wordCloudData = currentGameData.filter(d => d.language === language);
+        filteredData = currentGameData.filter(d => d.language === language);
     }
 
-    // 4. Update Word Cloud
-    updateWordCloud(wordCloudData);
-    updateHistogram(wordCloudData);
+    updateWordCloud(filteredData);
+    updateHistogram(filteredData);
 }
 
 // ---------------------------------------------------------
@@ -218,12 +264,11 @@ function updatePieChart(data) {
     path.enter().append("path")
         .attr("fill", d => colorScale(d.data.language))
         .attr("stroke", "#1b2838")
-        .style("cursor", "pointer") // Make it look clickable
+        .style("cursor", "pointer")
         .each(function(d) { this._current = d; })
         .merge(path)
-        .attr("class", "") // Reset classes on redraw
+        .attr("class", "")
         .on("click", function(event, d) {
-            // Toggle logic: If clicking the active one, unselect it.
             if (activeLanguage === d.data.language) {
                 handleLanguageSelection(null);
             } else {
@@ -232,7 +277,7 @@ function updatePieChart(data) {
             event.stopPropagation();
         })
         .on("mouseover", function(event, d) {
-            if (d3.select(this).classed("dimmed")) return; // Don't highlight dimmed slices
+            if (d3.select(this).classed("dimmed")) return;
             d3.select(this).attr("opacity", 0.8);
             tooltip.style("opacity", 1)
                 .html(`<strong>${languageNameMap[d.data.language] ?? d.data.language}</strong><br/>${d.data.percentage.toFixed(2)}%<br/><span style="font-size:11px; color:#66c0f4">(Click to filter Word Cloud)</span>`);
@@ -266,7 +311,6 @@ function updateLegend(data) {
     merged.select(".legend-color").style("background-color", d => colorScale(d.language));
     merged.select(".legend-text").text(d => `${languageNameMap[d.language] ?? d.language}: ${d.percentage.toFixed(2)}%`);
     
-    // Add Click Interaction
     merged.on("click", function(event, d) {
         if (activeLanguage === d.language) {
             handleLanguageSelection(null);
@@ -275,9 +319,7 @@ function updateLegend(data) {
         }
     });
 
-    // Reset classes
     merged.classed("dimmed", false);
-
     items.exit().remove();
 }
 
@@ -286,8 +328,6 @@ function updateLegend(data) {
 // ---------------------------------------------------------
 function updateWordCloud(data) {
     const wordMap = new Map();
-    console.log(`[WordCloud Debug] Processing ${data.length} rows.`);
-
     const dataToProcess = data; 
     const segmenter = new Intl.Segmenter([], { granularity: 'word' });
 
@@ -300,7 +340,6 @@ function updateWordCloud(data) {
 
         for (const segment of segments) {
             const w = segment.segment;
-
             if (segment.isWordLike && !stopWords.has(w)) {
                 const isCJK = /[\u4e00-\u9fff]/.test(w);
                 if (!isCJK && w.length < 3) continue; 
@@ -369,66 +408,70 @@ function updateWordCloud(data) {
 }
 
 // ---------------------------------------------------------
-// HISTOGRAM LOGIC
+// 7. HISTOGRAM LOGIC
 // ---------------------------------------------------------
 function updateHistogram(data) {
+    if (data.length === 0) {
+        svgHist.selectAll("*").remove();
+        return;
+    }
 
     const counts = Array.from(d3.rollup(data, 
         v => d3.rollup(v, count => count.length, d => d.recommended), 
-        d => d3.timeDay.floor(d.timestamp_updated) // Bin by day
+        d => {
+            if (!d.timestamp_updated || isNaN(d.timestamp_updated)) return null;
+            return d3.timeDay.floor(d.timestamp_updated);
+        }
     ));
 
-    // Transform into "wide" format for d3.stack
-    // Result format: [{ date, true: countT, false: countF, total: countT+countF }, ...]
-    const wideData = counts.map(([date, recommendedMap]) => {
-        const trueCount = recommendedMap.get(true) || 0;
-        const falseCount = recommendedMap.get(false) || 0;
-        return {
-            date: date,
-            true: trueCount,
-            false: falseCount,
-            total: trueCount + falseCount
-        };
-    }).sort((a, b) => a.date - b.date);
+    const wideData = counts
+        .filter(d => d[0] !== null)
+        .map(([date, recommendedMap]) => {
+            const trueCount = recommendedMap.get(true) || 0;
+            const falseCount = recommendedMap.get(false) || 0;
+            return {
+                date: date,
+                true: trueCount,
+                false: falseCount,
+                total: trueCount + falseCount
+            };
+        })
+        .sort((a, b) => a.date - b.date);
 
-    // Define keys for the stack (the boolean categories)
+    if (wideData.length === 0) return;
+
     const keys = ['true', 'false'];
+    const stack = d3.stack().keys(keys);
+    const stackedData = stack(wideData);
 
-    // d3.stack generator
-    const stack = d3.stack()
-        .keys(keys)
-        .order(d3.stackOrderNone)
-        .offset(d3.stackOffsetNone);
-
-    // Generate stacked data layers
-    stackedData = stack(wideData);
-
-    const xScale = d3.scaleBand()
-        .domain(stackedData[0].map(d => d.data.date))
-        .range([0, histWidth])
-        .padding(0.2);
+    const xScale = d3.scaleTime()
+        .domain(d3.extent(wideData, d => d.date))
+        .range([0, histWidth]);
 
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(stackedData[stackedData.length - 1], d => d[1])]) // Max y value from top of stacks
+        .domain([0, d3.max(stackedData[stackedData.length - 1], d => d[1])])
         .range([histHeight, 0]);
 
-    const xAxis = d3.axisBottom(xScale).tickFormat(d3.timeFormat("%b %d"));
+    const xAxis = d3.axisBottom(xScale).ticks(5);
     const yAxis = d3.axisLeft(yScale);
 
     svgHist.selectAll("*").remove();
+
+    const barWidth = Math.max(1, (histWidth / wideData.length) - 1);
+
     const layer = svgHist.selectAll(".layer")
-    .data(stackedData)
-    .enter().append("g")
+        .data(stackedData)
+        .enter().append("g")
         .attr("class", "layer")
         .attr("fill", d => sentimentColorScale(d.key == "true" ? 1 : 0));
 
     layer.selectAll("rect")
-    .data(d => d)
-    .enter().append("rect")
+        .data(d => d)
+        .enter().append("rect")
         .attr("x", d => xScale(d.data.date))
         .attr("y", d => yScale(d[1]))
         .attr("height", d => yScale(d[0]) - yScale(d[1]))
-        .attr("width", xScale.bandwidth());
+        .attr("width", barWidth);
 
     svgHist.append("g")
         .attr("class", "axis x-axis")

@@ -24,6 +24,8 @@ h1, h3 {
     display: flex;
     gap: 20px;
     align-items: flex-end;
+    min-height: 90px;
+    z-index: 500; /* Ensure controls sit above charts */
 }
 
 .control-group {
@@ -34,6 +36,7 @@ h1, h3 {
 
 label { font-size: 14px; font-weight: bold; color: #66c0f4; }
 
+/* General Input Styles */
 input[type="text"], select {
     padding: 8px;
     font-size: 16px;
@@ -43,9 +46,47 @@ input[type="text"], select {
     background-color: #101822;
     color: #ffffff;
     outline: none;
+    box-sizing: border-box; /* Keeps width consistent including padding */
 }
 
-/* --- SENTIMENT BAR --- */
+/* --- FIX FOR DROPDOWN --- */
+.select-wrapper {
+    position: relative; /* CRITICAL: Anchors the absolute dropdown here */
+    width: 250px;       /* Force wrapper width */
+    height: 38px;       /* Reserve space so layout doesn't collapse */
+    display: block;     /* Ensure it behaves like a block */
+}
+
+select {
+    width: 100%;        /* Fill the wrapper */
+    cursor: pointer;
+}
+
+select.expanded {
+    position: absolute; /* Float above content */
+    top: 0;             /* Align to top of wrapper */
+    left: 0;            /* Align to left of wrapper */
+    width: 100%;        /* strictly 250px (100% of wrapper) */
+    height: auto;       /* Let it grow vertically */
+    max-height: 300px;  /* Limit height */
+    z-index: 1000;      /* Sit on top of everything */
+    border: 1px solid #66c0f4;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    background-color: #101822;
+}
+
+option {
+    padding: 8px; /* Easier to click */
+    background-color: #101822;
+    color: white;
+}
+
+option:hover {
+    background-color: #1b2838;
+}
+/* ------------------------ */
+
+/* Sentiment Bar */
 #sentiment-panel {
     width: 100%;
     max-width: 800px; 
@@ -74,21 +115,10 @@ input[type="text"], select {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
-#bar-negative {
-    height: 100%;
-    background-color: #f1c40f; 
-    width: 50%; 
-    transition: width 0.8s ease-in-out;
-}
+#bar-negative { height: 100%; background-color: #f1c40f; width: 50%; transition: width 0.8s ease-in-out; }
+#bar-positive { height: 100%; background-color: #66c0f4; width: 50%; transition: width 0.8s ease-in-out; }
 
-#bar-positive {
-    height: 100%;
-    background-color: #66c0f4; 
-    width: 50%; 
-    transition: width 0.8s ease-in-out;
-}
-
-/* --- DASHBOARD --- */
+/* Dashboard Layout */
 #dashboard {
     display: flex;
     flex-wrap: wrap;
@@ -96,6 +126,7 @@ input[type="text"], select {
     gap: 40px;
     width: 100%;
     max-width: 1200px;
+    z-index: 1; /* Sit behind controls */
 }
 
 .chart-wrapper {
@@ -106,10 +137,9 @@ input[type="text"], select {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-    position: relative; /* For reset button positioning context */
+    position: relative; 
 }
 
-/* Charts */
 #chart-container, #wordcloud-container {
     width: 400px;
     height: 400px;
@@ -118,7 +148,6 @@ input[type="text"], select {
     justify-content: center;
 }
 
-/* Legend */
 #legend-container {
     margin-top: 15px;
     display: flex;
@@ -128,32 +157,21 @@ input[type="text"], select {
     width: 100%;
 }
 
-/* Interactivity Classes */
 .legend-item {
     display: flex;
     align-items: center;
     margin-bottom: 5px;
     font-size: 13px;
-    cursor: pointer; /* Clickable */
+    cursor: pointer;
     padding: 2px 5px;
     border-radius: 4px;
     transition: background-color 0.2s, opacity 0.3s;
 }
 
-.legend-item:hover {
-    background-color: rgba(255,255,255,0.1);
-}
+.legend-item:hover { background-color: rgba(255,255,255,0.1); }
+.legend-color { width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; }
+.dimmed { opacity: 0.2; }
 
-.legend-color {
-    width: 12px; height: 12px; margin-right: 8px; border-radius: 2px;
-}
-
-/* Dimmed state for unselected items */
-.dimmed {
-    opacity: 0.2; 
-}
-
-/* Reset Button */
 #reset-language-btn {
     background-color: #66c0f4;
     color: #1b2838;
@@ -165,9 +183,7 @@ input[type="text"], select {
     font-size: 12px;
     margin-bottom: 10px;
 }
-#reset-language-btn:hover {
-    background-color: #ffffff;
-}
+#reset-language-btn:hover { background-color: #ffffff; }
 
 .tooltip {
     position: absolute;
@@ -180,5 +196,5 @@ input[type="text"], select {
     transition: opacity 0.2s;
     border: 1px solid #66c0f4;
     font-size: 14px;
-    z-index: 100;
+    z-index: 2000;
 }
