@@ -441,7 +441,7 @@ function updateHistogram(data) {
         v => d3.rollup(v, count => count.length, d => d.recommended), 
         d => {
             if (!d.timestamp_updated || isNaN(d.timestamp_updated)) return null;
-            return d3.timeDay.floor(d.timestamp_updated);
+            return d3.timeWeek.floor(d.timestamp_updated);
         }
     ));
 
