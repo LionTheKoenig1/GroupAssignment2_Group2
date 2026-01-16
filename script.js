@@ -508,79 +508,79 @@ function updateHistogram(data) {
 // 8. SCATTER PLOT LOGIC
 // ---------------------------------------------------------
 function updateScatterplot(data) {
+    // 1. Immediate Cleanup
     svgScatter.selectAll("*").remove();
-
     if (data.length === 0) return;
 
-    // Filter out rows with missing playtime data
-    const plotData = data.filter(d => d["author.playtime_at_review"] != null);
+    // 2. Advanced Filtering & Capping
+    // We prioritize reviews with votes, then sample those without.
+    let withVotes = data.filter(d => +d.weighted_vote_score > 0 && d["author.playtime_at_review"] != null);
+    let noVotes = data.filter(d => +d.weighted_vote_score === 0 && d["author.playtime_at_review"] != null);
 
-    // X scale: Playtime (hours)
-    const xScale = d3.scaleLog() 
+    // Sample the no-votes even more aggressively for the Global view
+    let sampledNoVotes = noVotes.filter((d, i) => i % 15 === 0);
+
+    // Combine and Hard Cap at 2,000 dots to prevent browser lag
+    let plotData = [...withVotes, ...sampledNoVotes].slice(0, 2000);
+
+    // 3. Scales (Standard)
+    const xScale = d3.scaleLog()
         .domain([1, d3.max(plotData, d => +d["author.playtime_at_review"] / 60) || 100])
         .range([0, scatterWidth]);
 
-    // Y scale: Weighted Vote Score (0 to 1)
     const yScale = d3.scaleLinear()
         .domain([0, 1])
         .range([scatterHeight, 0]);
 
-    // --- AXES ---
+    // 4. Draw Axes & Labels
+    const xAxis = d3.axisBottom(xScale).ticks(5, ".1f");
+    const yAxis = d3.axisLeft(yScale);
+
     svgScatter.append("g")
         .attr("transform", `translate(0,${scatterHeight})`)
         .attr("class", "axis")
-        .call(d3.axisBottom(xScale).ticks(5, ".1f"));
+        .call(xAxis);
 
     svgScatter.append("g")
         .attr("class", "axis")
-        .call(d3.axisLeft(yScale));
-
-    // --- ADD LABELS HERE ---
+        .call(yAxis);
 
     // X-Axis Label
     svgScatter.append("text")
         .attr("text-anchor", "middle")
         .attr("x", scatterWidth / 2)
-        .attr("y", scatterHeight + 35) 
-        .style("fill", "#ffffffff")
-        .style("font-size", "12px")
-        .style("font-weight", "bold")
+        .attr("y", scatterHeight + 35)
+        .style("fill", "#66c0f4")
+        .style("font-size", "11px")
         .text("Playtime at Review (Hours)");
 
-    // Y-Axis Label
-    svgScatter.append("text")
-        .attr("text-anchor", "middle")
-        .attr("transform", "rotate(-90)")
-        .attr("y", -40) // Adjust this if the label hits the numbers
-        .attr("x", -scatterHeight / 2)
-        .style("fill", "#ffffffff")
-        .style("font-size", "12px")
-        .style("font-weight", "bold")
-        .text("Helpfulness Score (0-1)");
+    // 5. Render Dots using a "Virtual" approach
+    // We use a small timeout to let the UI breathe before drawing heavy dots
+    window.requestAnimationFrame(() => {
+        const dots = svgScatter.selectAll(".dot")
+            .data(plotData);
 
-    // --- ADD DOTS ---
-    svgScatter.selectAll(".dot")
-        .data(plotData)
-        .enter().append("circle")
-        .attr("class", "dot")
-        .attr("cx", d => xScale(Math.max(1, +d["author.playtime_at_review"] / 60)))
-        .attr("cy", d => yScale(+d.weighted_vote_score))
-        .attr("r", 4)
-        .style("fill", d => d.recommended ? "#66c0f4" : "#f1c40f")
-        .on("mouseover", function(event, d) {
-            d3.select(this).attr("r", 7).style("opacity", 1);
-            tooltip.style("opacity", 1)
-                .html(`
-                    <strong>Playtime:</strong> ${Math.round(+d["author.playtime_at_review"] / 60)} hrs<br/>
-                    <strong>Helpfulness:</strong> ${(d.weighted_vote_score * 100).toFixed(1)}%<br/>
-                    <strong>Language:</strong> ${d.language}
-                `);
-        })
-        .on("mousemove", event => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 15) + "px"))
-        .on("mouseout", function() {
-            d3.select(this).attr("r", 4).style("opacity", 0.7);
-            tooltip.style("opacity", 0);
-        });
+        dots.enter().append("circle")
+            .attr("class", "dot")
+            .attr("cx", d => xScale(Math.max(1, +d["author.playtime_at_review"] / 60)))
+            .attr("cy", d => yScale(+d.weighted_vote_score))
+            .attr("r", 2.5) // Smaller dots are faster to render
+            .style("fill", d => d.recommended ? "#66c0f4" : "#f1c40f")
+            .style("opacity", 0.5)
+            .on("mouseover", function(event, d) {
+                d3.select(this).attr("r", 6).style("opacity", 1);
+                tooltip.style("opacity", 1)
+                    .html(`
+                        <strong>Playtime:</strong> ${Math.round(+d["author.playtime_at_review"] / 60)} hrs<br/>
+                        <strong>Helpfulness:</strong> ${(d.weighted_vote_score * 100).toFixed(1)}%
+                    `);
+            })
+            .on("mousemove", event => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 15) + "px"))
+            .on("mouseout", function() {
+                d3.select(this).attr("r", 2.5).style("opacity", 0.5);
+                tooltip.style("opacity", 0);
+            });
+    });
 }
 
 
