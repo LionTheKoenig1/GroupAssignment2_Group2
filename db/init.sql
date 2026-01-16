@@ -27,8 +27,11 @@ CREATE TABLE steam_reviews (
     search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', review)) STORED
 );
 
--- Index for fast word-distance searching
+-- Index for fast searching
 CREATE INDEX idx_review_search ON steam_reviews USING GIN(search_vector);
+CREATE INDEX idx_app_id ON steam_reviews (app_id);
+CREATE INDEX idx_app_recommend ON steam_reviews (recommended);
+CREATE INDEX idx_app_lang ON steam_reviews (language);
 
 -- Import the CSV
 -- We map every column in the file to the table columns
