@@ -437,11 +437,12 @@ function updateHistogram(data) {
         return;
     }
 
+    // 1. Prepare Data (Group by Week)
     const counts = Array.from(d3.rollup(data, 
         v => d3.rollup(v, count => count.length, d => d.recommended), 
         d => {
             if (!d.timestamp_updated || isNaN(d.timestamp_updated)) return null;
-            return d3.timeWeek.floor(d.timestamp_updated);
+            return d3.timeWeek.floor(d.timestamp_updated); // Binning by WEEK
         }
     ));
 
@@ -477,8 +478,15 @@ function updateHistogram(data) {
     const yAxis = d3.axisLeft(yScale);
 
     svgHist.selectAll("*").remove();
-
-    const barWidth = Math.max(1, (histWidth / wideData.length) - 1);
+    
+    // --- FIX STARTS HERE ---
+    // Calculate bar width based on TIME (1 week) rather than data count.
+    // This ensures bars are always the visual width of "1 week" regardless of sparsity.
+    const startDate = xScale.domain()[0];
+    const oneWeekLater = d3.timeWeek.offset(startDate, 1);
+    let barWidth = xScale(oneWeekLater) - xScale(startDate) - 1; // -1 for gap
+    barWidth = Math.max(1, barWidth); // Ensure positive width
+    // --- FIX ENDS HERE ---
 
     const layer = svgHist.selectAll(".layer")
         .data(stackedData)
@@ -502,6 +510,10 @@ function updateHistogram(data) {
     svgHist.append("g")
         .attr("class", "axis y-axis")
         .call(yAxis);
+
+    // Re-attach Brush
+    brushGroup = svgHist.append("g").attr("class", "brush");
+    brushGroup.call(brush);
 }
 
 // ---------------------------------------------------------
