@@ -321,8 +321,6 @@ function updateLegend(data) {
     enter.append("span").attr("class", "legend-text");
 
     const merged = enter.merge(items);
-
-    merged.sort((a, b) => b.count - a.count);
     
     merged.select(".legend-color").style("background-color", d => colorScale(d.language));
     merged.select(".legend-text").text(d => `${languageNameMap[d.language] ?? d.language}: ${d.percentage.toFixed(2)}%`);
@@ -510,8 +508,8 @@ function updateScatterplot(data) {
     // Filter out rows with missing playtime data
     const plotData = data.filter(d => d["author.playtime_at_review"] != null);
 
-    // X scale: Playtime (hours) -> Note: Steam data is usually in minutes, converting to hours
-    const xScale = d3.scaleLog() // Using Log scale because playtime varies wildly
+    // X scale: Playtime (hours)
+    const xScale = d3.scaleLog() 
         .domain([1, d3.max(plotData, d => +d["author.playtime_at_review"] / 60) || 100])
         .range([0, scatterWidth]);
 
@@ -520,7 +518,7 @@ function updateScatterplot(data) {
         .domain([0, 1])
         .range([scatterHeight, 0]);
 
-    // Axes
+    // --- AXES ---
     svgScatter.append("g")
         .attr("transform", `translate(0,${scatterHeight})`)
         .attr("class", "axis")
@@ -530,8 +528,30 @@ function updateScatterplot(data) {
         .attr("class", "axis")
         .call(d3.axisLeft(yScale));
 
+    // --- ADD LABELS HERE ---
 
-    // Add Dots
+    // X-Axis Label
+    svgScatter.append("text")
+        .attr("text-anchor", "middle")
+        .attr("x", scatterWidth / 2)
+        .attr("y", scatterHeight + 35) 
+        .style("fill", "#ffffffff")
+        .style("font-size", "12px")
+        .style("font-weight", "bold")
+        .text("Playtime at Review (Hours)");
+
+    // Y-Axis Label
+    svgScatter.append("text")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40) // Adjust this if the label hits the numbers
+        .attr("x", -scatterHeight / 2)
+        .style("fill", "#ffffffff")
+        .style("font-size", "12px")
+        .style("font-weight", "bold")
+        .text("Helpfulness Score (0-1)");
+
+    // --- ADD DOTS ---
     svgScatter.selectAll(".dot")
         .data(plotData)
         .enter().append("circle")
