@@ -219,3 +219,12 @@ option:hover {
     fill: #c7d5e0;
     font-size: 10px;
 }
+
+.chart-description {
+    font-size: 11px;
+    color: #8ba1b1; /* Muted blue-grey */
+    max-width: 350px;
+    text-align: center;
+    margin: 0 0 10px 0;
+    line-height: 1.4;
+}
