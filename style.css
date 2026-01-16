@@ -198,3 +198,24 @@ option:hover {
     font-size: 14px;
     z-index: 2000;
 }
+
+#scatterplot-container {
+    width: 400px;
+    height: 400px;
+}
+
+.dot {
+    stroke: #101822;
+    stroke-width: 1px;
+    opacity: 0.7;
+}
+
+.axis path,
+.axis line {
+    stroke: #4b6b84;
+}
+
+.axis text {
+    fill: #c7d5e0;
+    font-size: 10px;
+}
