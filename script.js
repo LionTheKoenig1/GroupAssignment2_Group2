@@ -665,10 +665,10 @@ function updateHeatmap(app_id) {
                 .range(["#101822", "#101822", "blue"])
                 .clamp(true);
 
-            // Create color scale for bottom triangle (red)
+            // Create color scale for bottom triangle (yellow)
             const colorScaleBottom = d3.scaleLog()
                 .domain([1, 40, maxBottom])
-                .range(["#101822", "#101822", "red"])
+                .range(["#101822", "#101822", "#f1c40f"])
                 .clamp(true);
 
         // --- Draw Cells ---
