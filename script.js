@@ -510,10 +510,6 @@ function updateHistogram(data) {
     svgHist.append("g")
         .attr("class", "axis y-axis")
         .call(yAxis);
-
-    // Re-attach Brush
-    brushGroup = svgHist.append("g").attr("class", "brush");
-    brushGroup.call(brush);
 }
 
 // ---------------------------------------------------------
