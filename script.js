@@ -76,6 +76,18 @@ const sentimentColorScale = d3.scaleLinear()
 
 const tooltip = d3.select("#tooltip");
 
+// --- Scatter PlotConfig ---
+const scatterMargin = {top: 20, right: 20, bottom: 40, left: 50},
+    scatterWidth = 400 - scatterMargin.left - scatterMargin.right,
+    scatterHeight = 400 - scatterMargin.top - scatterMargin.bottom;
+
+const svgScatter = d3.select("#scatterplot-container")
+    .append("svg")
+    .attr("width", 400)
+    .attr("height", 400)
+    .append("g")
+    .attr("transform", `translate(${scatterMargin.left}, ${scatterMargin.top})`);
+
 // ---------------------------------------------------------
 // STOP WORDS SETUP
 // ---------------------------------------------------------
@@ -208,6 +220,7 @@ function updateDashboard(rawData, selectedGame) {
     updatePieChart(currentGameData);
     updateWordCloud(currentGameData);
     updateHistogram(currentGameData);
+    updateScatterplot(currentGameData);
 }
 
 function handleLanguageSelection(language) {
@@ -228,6 +241,7 @@ function handleLanguageSelection(language) {
 
     updateWordCloud(filteredData);
     updateHistogram(filteredData);
+    updateScatterplot(filteredData);
 }
 
 // ---------------------------------------------------------
@@ -481,4 +495,61 @@ function updateHistogram(data) {
     svgHist.append("g")
         .attr("class", "axis y-axis")
         .call(yAxis);
+}
+
+// ---------------------------------------------------------
+// 8. SCATTER PLOT LOGIC
+// ---------------------------------------------------------
+function updateScatterplot(data) {
+    svgScatter.selectAll("*").remove();
+
+    if (data.length === 0) return;
+
+    // Filter out rows with missing playtime data
+    const plotData = data.filter(d => d["author.playtime_at_review"] != null);
+
+    // X scale: Playtime (hours) -> Note: Steam data is usually in minutes, converting to hours
+    const xScale = d3.scaleLog() // Using Log scale because playtime varies wildly
+        .domain([1, d3.max(plotData, d => +d["author.playtime_at_review"] / 60) || 100])
+        .range([0, scatterWidth]);
+
+    // Y scale: Weighted Vote Score (0 to 1)
+    const yScale = d3.scaleLinear()
+        .domain([0, 1])
+        .range([scatterHeight, 0]);
+
+    // Axes
+    svgScatter.append("g")
+        .attr("transform", `translate(0,${scatterHeight})`)
+        .attr("class", "axis")
+        .call(d3.axisBottom(xScale).ticks(5, ".1f"));
+
+    svgScatter.append("g")
+        .attr("class", "axis")
+        .call(d3.axisLeft(yScale));
+
+
+    // Add Dots
+    svgScatter.selectAll(".dot")
+        .data(plotData)
+        .enter().append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => xScale(Math.max(1, +d["author.playtime_at_review"] / 60)))
+        .attr("cy", d => yScale(+d.weighted_vote_score))
+        .attr("r", 4)
+        .style("fill", d => d.recommended ? "#66c0f4" : "#f1c40f")
+        .on("mouseover", function(event, d) {
+            d3.select(this).attr("r", 7).style("opacity", 1);
+            tooltip.style("opacity", 1)
+                .html(`
+                    <strong>Playtime:</strong> ${Math.round(+d["author.playtime_at_review"] / 60)} hrs<br/>
+                    <strong>Helpfulness:</strong> ${(d.weighted_vote_score * 100).toFixed(1)}%<br/>
+                    <strong>Language:</strong> ${d.language}
+                `);
+        })
+        .on("mousemove", event => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 15) + "px"))
+        .on("mouseout", function() {
+            d3.select(this).attr("r", 4).style("opacity", 0.7);
+            tooltip.style("opacity", 0);
+        });
 }
