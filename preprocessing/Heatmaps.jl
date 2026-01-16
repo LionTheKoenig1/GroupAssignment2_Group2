@@ -186,13 +186,13 @@ for group in groupby(df_filtered, :app_id)
 
     print("Writing Vocab to JSON ")
     global time = @elapsed open("$output_path/vocab/$app_id.json", "w") do f
-        JSON.print(f, filtered_vocab.word, 4)
+        JSON.print(f, filtered_vocab.word)
     end
     print(" - Done  $time\n")
 
     print("Writing Matrix to JSON ")
     global time = @elapsed open("$output_path/adj_matrix/$app_id.json", "w") do f
-        JSON.print(f, filtered_matrix, 4)
+        JSON.print(f, filtered_matrix)
     end
     print(" - Done  $time\n")
 
