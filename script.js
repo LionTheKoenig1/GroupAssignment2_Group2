@@ -221,6 +221,13 @@ function updateDashboard(rawData, selectedGame) {
     updateWordCloud(currentGameData);
     updateHistogram(currentGameData);
     updateScatterplot(currentGameData);
+
+    if (selectedGame !== "Global") {
+        updateHeatmap(currentGameData[0].app_id);
+    } else {
+        updateHeatmap(null);
+    }
+    
 }
 
 function handleLanguageSelection(language) {
@@ -574,4 +581,212 @@ function updateScatterplot(data) {
             d3.select(this).attr("r", 4).style("opacity", 0.7);
             tooltip.style("opacity", 0);
         });
+}
+
+
+// ---------------------------------------------------------
+// 9. HEATMAP LOGIC
+// ---------------------------------------------------------
+
+function updateHeatmap(app_id) {
+    const container = d3.select("#matrix");
+    const msgDiv = d3.select("#heatmap-msg");
+    
+    // Clear previous heatmap
+    container.selectAll("*").remove();
+
+    // Handle Global Case or Missing ID
+    if (!app_id) {
+        msgDiv.text("Select a specific game to view the co-occurrence matrix.");
+        return;
+    }
+
+    msgDiv.text("Scroll to zoom, Drag to pan. Hover for details.");
+
+    // Paths to data
+    const vocabPath = `heatmap/vocab/${app_id}.json`;
+    const matrixPath = `heatmap/adj_matrix/${app_id}.json`;
+
+    Promise.all([
+        d3.json(vocabPath),
+        d3.json(matrixPath)
+    ]).then(function([vocab, adjMatrix]) {
+        
+        // --- Configuration ---
+        const cellSize = 20;
+        const heatmapWidth = vocab.length * cellSize;
+        const heatmapHeight = vocab.length * cellSize;
+        const labelSpace = 500; // Space for labels within the SVG coordinate system
+
+        // --- Setup SVG ---
+        const svg = container.append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", [-labelSpace, -labelSpace, heatmapWidth + labelSpace, heatmapHeight + labelSpace])
+            .style("cursor", "move");
+
+        var clip = svg.append("defs").append("svg:clipPath")
+                .attr("id", "clip")
+                .append("svg:rect")
+                .attr("width", heatmapWidth)
+                .attr("height", heatmapHeight)
+                .attr("x", 0)
+                .attr("y", 0);
+
+        //const g = svg.append("g")
+        const zoomClip = svg.append("g").attr("class", "clip")
+            .attr("clip-path", "url(#clip)")
+        const zoomLayer = zoomClip.append("g")
+            .attr("class", "zoom-layer")
+            .attr("fill", "black")
+
+        const xAxisLabels = svg.append("g").attr("class", "x-axis-labels");
+        const yAxisLabels = svg.append("g").attr("class", "y-axis-labels");
+
+        // --- Color Scales ---
+        
+        // Calculate max for top triangle (positive reviews)
+        const maxTop = d3.max(
+            adjMatrix.flatMap((row, i) =>
+                row.slice(i).map(val => val) 
+            )
+        ) || 1;
+
+        // Calculate max for bottom triangle (negative reviews)
+        const maxBottom = d3.max(
+            adjMatrix.flatMap((row, i) =>
+                row.slice(0, i).map(val => val) 
+            )
+        ) || 1;
+
+        // Create color scale for top triangle (blue)
+            const colorScaleTop = d3.scaleLog()
+                .domain([1, 40, maxTop])
+                .range(["#101822", "#101822", "blue"])
+                .clamp(true);
+
+            // Create color scale for bottom triangle (red)
+            const colorScaleBottom = d3.scaleLog()
+                .domain([1, 40, maxBottom])
+                .range(["#101822", "#101822", "red"])
+                .clamp(true);
+
+        // --- Draw Cells ---
+        for (let i = 0; i < adjMatrix.length; i++) {
+            for (let j = 0; j < adjMatrix[i].length; j++) {
+                let color;
+                const val = adjMatrix[i][j];
+                
+                // Skip drawing empty cells to save DOM nodes
+                if (val === 0 && i !== j) continue;
+
+                let opacity = Math.min(val * 2, 100.0) / 100.0;
+                
+                if (i === j) {
+                    color = "#eee"; // Diagonal
+                    opacity = 1;
+                } else if (i < j) {
+                    // Top Triangle (Positive)
+                    color = colorScaleTop(val); 
+                } else {
+                    // Bottom Triangle (Negative)
+                    color = colorScaleBottom(val);
+                }
+
+                zoomLayer.append("rect")
+                    .attr("class", "cell")
+                    .attr("x", j * cellSize + 1)
+                    .attr("y", i * cellSize + 1)
+                    .attr("width", cellSize - 2)
+                    .attr("height", cellSize - 2)
+                    .attr("rx", 2)
+                    .attr("ry", 2)
+                    .attr("fill-opacity", opacity)
+                    .style("fill", color)
+                    .on("mouseover", function(event) {
+                        d3.select(this).style("stroke", "black").style("stroke-width", 2);
+                        
+                        // Determine sentiment label
+                        let type = i === j ? "Self" : (i < j ? "Positive" : "Negative");
+                        let colorHex = i < j ? "#66c0f4" : (i > j ? "#f1c40f" : "#999");
+
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>${vocab[i]} & ${vocab[j]}</strong><br/>
+                                   Count: ${val}<br/>
+                                   Context: <span style="color:${colorHex}">${type}</span>`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mousemove", function(event) {
+                        tooltip.style("left", (event.pageX + 10) + "px")
+                               .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).style("stroke", "none");
+                        tooltip.style("opacity", 0);
+                    });
+            }
+        }
+
+        // --- Draw Labels ---
+        xAxisLabels.selectAll(".x-label")
+            .data(vocab)
+            .enter()
+            .append("text")
+            .attr("class", "x-label")
+            .attr("y", (d, i) => i * cellSize + cellSize / 2)
+            .attr("x", 5)
+            .text(d => d)
+            .style("text-anchor", "start")
+            .style("font-size", "10px")
+            .attr("transform", "rotate(-90)"); // Initial rotation
+
+        yAxisLabels.selectAll(".y-label")
+            .data(vocab)
+            .enter()
+            .append("text")
+            .attr("class", "y-label")
+            .attr("x", -5)
+            .attr("y", (d, i) => i * cellSize + cellSize / 2 + 3)
+            .text(d => d)
+            .style("text-anchor", "end")
+            .style("font-size", "10px");
+
+        // White mask for the top-left corner where labels intersect
+        svg.append("rect")
+            .attr("width", labelSpace)
+            .attr("height", labelSpace)
+            .attr("x", -labelSpace)
+            .attr("y", -labelSpace)
+            .attr("fill", "#101822");
+
+        // --- Zoom Behavior ---
+        function zoomed({ transform }) {
+            zoomLayer.attr("transform", transform);
+            
+            // Transform X labels: Move X with zoom, keep Y fixed at top (relative to view)
+            // Note: because X labels are rotated -90deg, the logic is slightly inverted visually
+            xAxisLabels.attr("transform", `translate(${transform.x}, 1) scale(${transform.k})`);
+            
+            // Transform Y labels: Move Y with zoom, keep X fixed at left
+            yAxisLabels.attr("transform", `translate(1, ${transform.y}) scale(${transform.k})`);
+        }
+
+        const zoom = d3.zoom()
+            .extent([[0, 0], [heatmapWidth, heatmapHeight]])
+            .scaleExtent([1, 8]) // Limit zoom levels
+            .translateExtent([[0, 0], [heatmapWidth, heatmapHeight]])
+            .on("zoom", zoomed);
+
+        svg.call(zoom);
+
+        // Center the view initially if data is smaller than view, or zoom out to fit
+        //const initialScale = Math.min(width / dataWidth, hei / dataHeight, 1);
+        //svg.call(zoom.transform, d3.zoomIdentity.scale(initialScale));
+
+    }).catch(function(error) {
+        console.error("Heatmap data not found or error loading:", error);
+        msgDiv.text("No adjacency data available for this game.");
+        container.selectAll("*").remove();
+    });
 }

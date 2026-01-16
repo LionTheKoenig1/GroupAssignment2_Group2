@@ -140,6 +140,36 @@ option:hover {
     position: relative; 
 }
 
+#heatmap-wrapper {
+    width: 1400px;
+    height: 800px;
+}
+#heatmap-container {
+    padding: 10px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    align-items: center;
+}
+#matrix {
+    width: 600px;
+    height: 600px;
+}
+#explanation {
+    overflow: scroll;
+}
+.cell {
+    border: lightgray;
+    border-width: 1px;
+
+}
+.x-label, .y-label {
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    font-size: 10px;
+    fill: white;
+}
+
 #chart-container, #wordcloud-container {
     width: 400px;
     height: 400px;
