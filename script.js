@@ -885,3 +885,12 @@ function updateHeatmap(app_id) {
         samplesContainer.html("");
     });
 }
+
+function decodeEscapedString(str) {
+    try {
+        // Wrap in quotes to make it a valid JSON string, then parse
+        return JSON.parse('"' + str + '"');
+    } catch (e) {
+        return str; // Fallback if parsing fails
+    }
+}
