@@ -553,6 +553,16 @@ function updateScatterplot(data) {
         .style("fill", "#66c0f4")
         .style("font-size", "11px")
         .text("Playtime at Review (Hours)");
+    
+    // --- Y-Axis Label ---
+    svgScatter.append("text")
+    .attr("text-anchor", "middle")
+    .attr("transform", "rotate(-90)") // Rotates the text to stand vertically
+    .attr("y", -40)                   // Moves it to the left of the axis numbers
+    .attr("x", -scatterHeight / 2)    // Centers it vertically along the axis
+    .style("fill", "#ffffffff")      // Steam Blue
+    .style("font-size", "11px")
+    .text("Helpfulness Score (0 - 1)");
 
     // 5. Render Dots using a "Virtual" approach
     // We use a small timeout to let the UI breathe before drawing heavy dots
