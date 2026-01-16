@@ -321,6 +321,8 @@ function updateLegend(data) {
     enter.append("span").attr("class", "legend-text");
 
     const merged = enter.merge(items);
+
+    merged.sort((a, b) => b.count - a.count);
     
     merged.select(".legend-color").style("background-color", d => colorScale(d.language));
     merged.select(".legend-text").text(d => `${languageNameMap[d.language] ?? d.language}: ${d.percentage.toFixed(2)}%`);
