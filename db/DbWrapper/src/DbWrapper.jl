@@ -2,7 +2,6 @@ module DbWrapper
 using Oxygen
 using LibPQ
 using JSON3
-using DataFrames
 
 # Generated with the help of Gemini
 
@@ -32,7 +31,7 @@ const CONN_STR = "host=localhost user=readonly_user password=Blush-Imposing-Glad
         ORDER BY ts_rank(search_vector, to_tsquery('english', \$1)) DESC
         LIMIT 10;
     """
-    text_filter = "($w1 <3> $w2) | ($w2 <3> $w1)"
+    text_filter = "($w1 <6> $w2) | ($w2 <6> $w1)"
     @show text_filter
     result = execute(conn, sql, [text_filter, app_id, rec])
     # Correct way to get column names in LibPQ:

@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "08e4109508e6d59b867211bcfd39abfa4fea826b"
+project_hash = "6e021ad2d2f36dca0f72aa64b52ce90b4fca2d2f"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -97,7 +97,7 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 version = "1.11.0"
 
 [[deps.DbWrapper]]
-deps = ["JSON3", "LibPQ", "Oxygen"]
+deps = ["DataFrames", "JSON3", "LibPQ", "Oxygen"]
 path = "."
 uuid = "2979e83e-5944-47e2-8c9e-b67802577852"
 version = "0.1.0"
